@@ -3,13 +3,20 @@ import { Project, VariableDeclarationKind, ScriptTarget, IndentationText, NewLin
 import jsonSchemaToDts from '@atek-cloud/json-schema-to-dts'
 import { resolveRefs } from './resolve-refs.js'
 
-const DEFAULT_JSONRPCMODULE_URL = 'https://raw.githubusercontent.com/pfrazee/deno-schema-rpc/master/mod.ts'
+const HOST_APIBROKER_IMPORT = '@atek-cloud/api-broker'
+const DENO_JSONRPC_IMPORT = 'https://atek.cloud/x/rpc@latest/mod.ts'
 
 const PRELUDE = `
 // Generated file
 `
 
-export async function generate (schema) {
+export async function generate (schema, opts) {
+  if (opts?.env) {
+    if (opts.env !== 'deno-userland' && opts.env !== 'host') {
+      throw new Error(`The environment must be "deno-userland" or "host". "${opts.env}" is not valid.`)
+    }
+  }
+
   const project = new Project({
     useInMemoryFileSystem: true,
     compilerOptions: {
@@ -25,19 +32,17 @@ export async function generate (schema) {
   });
 
   await resolveRefs(schema)
-  // console.log(JSON.stringify(schema, undefined, 2))
 
   if (schema.type === 'api') {
     const clientFile = project.createSourceFile(`${schema.id}.ts`, PRELUDE)
-    generateApiClient(clientFile, schema)
+    generateApiClient(clientFile, schema, opts)
     const serverFile = project.createSourceFile(`${schema.id}.server.ts`, PRELUDE)
-    generateApiServer(serverFile, schema)
+    generateApiServer(serverFile, schema, opts)
     return {clientFile, serverFile}
   }
   if (schema.type === 'adb-record') {
     const typeFile = project.createSourceFile(`${schema.id}.ts`, PRELUDE)
-    const clientFile = project.createSourceFile(`${schema.id}.client.ts`, PRELUDE)
-    const serverFile = project.createSourceFile(`${schema.id}.server.ts`, PRELUDE)
+    // TODO const clientFile = project.createSourceFile(`${schema.id}.client.ts`, PRELUDE)
     jsonSchemaGenerateTypes(toSafeString(schema.title || schema.id), schema.definition, {
       sourceFile: typeFile,
       topLevel: { isExported: true },
@@ -49,17 +54,30 @@ export async function generate (schema) {
   throw new Error(`Unknown schema type: ${schema.type}`)
 }
 
-function generateApiClient (clientFile, schema) {
-  clientFile.addImportDeclaration({
-    moduleSpecifier: DEFAULT_JSONRPCMODULE_URL,
-    namedImports: [{ name: 'JsonRpcClient' }]
-  })
+function generateApiClient (clientFile, schema, opts) {
+  const env = opts?.env || 'deno-userland'
+
+  if (env === 'deno-userland') {
+    clientFile.addImportDeclaration({
+      moduleSpecifier: DENO_JSONRPC_IMPORT,
+      namedImports: [{ name: 'JsonRpcClient' }]
+    })
+  } else if (env === 'host') {
+    clientFile.addImportDeclaration({
+      moduleSpecifier: HOST_APIBROKER_IMPORT,
+      namedImports: [{ name: 'ApiBrokerClient' }]
+    })
+  }
 
   const clientClassName = `${toSafeString(schema.title || schema.id || '')}Client`
   const clientClass = clientFile.addClass({
     name: clientClassName
   })
-  clientClass.setExtends('JsonRpcClient')
+  if (env === 'deno-userland') {
+    clientClass.setExtends('JsonRpcClient')
+  } else if (env === 'host') {
+    clientClass.setExtends('ApiBrokerClient')
+  }
 
   const ctor = clientClass.addConstructor()
   ctor.setBodyText(`super(${JSON.stringify(schema, null, 2)})`)
@@ -98,22 +116,39 @@ function generateApiClient (clientFile, schema) {
   })
 }
 
-function generateApiServer (serverFile, schema) {
-  serverFile.addImportDeclaration({
-    moduleSpecifier: DEFAULT_JSONRPCMODULE_URL,
-    namedImports: [{ name: 'JsonRpcServer' }, { name: 'JsonRpcServerHandlers' }]
-  })
+function generateApiServer (serverFile, schema, opts) {
+  const env = opts?.env || 'deno-userland'
+
+  if (env === 'deno-userland') {
+    serverFile.addImportDeclaration({
+      moduleSpecifier: DENO_JSONRPC_IMPORT,
+      namedImports: [{ name: 'JsonRpcServer' }, { name: 'JsonRpcServerHandlers' }]
+    })
+  } else if (env === 'host') {
+    serverFile.addImportDeclaration({
+      moduleSpecifier: HOST_APIBROKER_IMPORT,
+      namedImports: [{ name: 'ApiBrokerServer' }, { name: 'ApiBrokerServerHandlers' }]
+    })
+  }
 
   const serverClassName = `${toSafeString(schema.title || schema.id || '')}Server`
   const serverClass = serverFile.addClass({
     name: serverClassName
   })
-  serverClass.setExtends('JsonRpcServer')
+  if (env === 'deno-userland') {
+    serverClass.setExtends('JsonRpcServer')
+  } else if (env === 'host') {
+    serverClass.setExtends('ApiBrokerServer')
+  }
   serverClass.setIsDefaultExport(true)
 
   const ctor = serverClass.addConstructor()
   const param = ctor.addParameter({name: 'handlers'})
-  param.setType('JsonRpcServerHandlers')
+  if (env === 'deno-userland') {
+    param.setType('JsonRpcServerHandlers')
+  } else if (env === 'host') {
+    param.setType('ApiBrokerServerHandlers')
+  }
   ctor.setBodyText(`super(${JSON.stringify(schema, null, 2)}, handlers)`)
 }
 

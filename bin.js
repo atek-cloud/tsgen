@@ -36,7 +36,7 @@ async function doGenerate (args) {
     const schema = await fetchSchema(schemaDomain, schemaName)
 
     console.log('Generating code for schema', schemaId)
-    const files = await generate(schema)
+    const files = await generate(schema, {env: args.env || 'deno-userland'})
 
     await fsp.mkdir(path.join(outFolderPath, schemaDomain)).catch(e => undefined)
     for (const k in files) {
@@ -77,7 +77,7 @@ async function doGenerateFolder (args) {
     const [schemaDomain] = schema.id.split('/')
     let files
     try {
-      files = await generate(schema)
+      files = await generate(schema, {env: args.env || 'deno-userland'})
     } catch (e) {
       if (args['skip-errors']) {
         console.log('  Skipping due to error')
