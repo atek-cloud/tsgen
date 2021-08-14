@@ -4,8 +4,7 @@
   "description": "Typescript generation toolset",
   "type": "module",
   "scripts": {
-    "prepare": "echo ''",
-    "postpublish": "echo ''",
+    "build": "tsc --project tsconfig.json",
     "test": "echo ''"
   },
   "keywords": [],
@@ -17,6 +16,11 @@
     "json-pointer": "^0.6.1",
     "node-fetch": "^2.6.1",
     "subcommand": "^2.1.1",
+    "ts-json-schema-generator": "^0.95.0",
     "ts-morph": "^11.0.3"
+  },
+  "devDependencies": {
+    "@types/node": "^16.6.1",
+    "typescript": "^4.3.5"
   }
 }

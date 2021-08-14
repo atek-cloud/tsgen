@@ -1,7 +1,7 @@
 import pointerlib from 'json-pointer'
 import fetch from 'node-fetch'
 
-export async function resolveRefs (node, root) {
+export async function resolveRefs (node, root = undefined) {
   root = root || node
   if (!node || typeof node !== 'object') return
   for (const k in node) {
@@ -34,6 +34,6 @@ async function fetchSchema (url) {
     console.error(`Failed to resolve reference to ${url}`)
     throw e
   }
-  await resolveRefs(schema, schema, console.log)
+  await resolveRefs(schema, schema)
   return schema
 }
