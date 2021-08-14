@@ -1,6 +1,8 @@
 # `tsgen` Typescript generator for Atek
 
-Atek defines RPC and database schemas using `.d.ts` files (called APDLs). This program generates Typescript APIs based on those APDLs. The generated API files will provide correct type signatures and provide runtime type-checking.
+Atek defines RPC and database schemas using `.d.ts` files called APDLs.
+
+This program generates Typescript APIs based on those APDLs. The generated API files provide correct type signatures, runtime type-checking, and the underlying RPC behaviors.
 
 An APDL is a standard `.d.ts` file with a couple of conventions:
 
@@ -8,7 +10,7 @@ An APDL is a standard `.d.ts` file with a couple of conventions:
 - It should export a default interface.
 - For APIs:
   - If any events must be emitted, it should include a `subscribe()` method in the default interface.
-  - The `subscribe()` method must return 1+ interface(s) which declare `on(name: 'event-name', evt: {...props})` functions.
+  - The `subscribe()` method must return 1+ interface(s) which declare `emit(name: 'event-name', evt: {...props})` functions.
 
 ## Example
 
