@@ -1,12 +1,22 @@
-import { Project, ScriptTarget, IndentationText, NewLineKind, QuoteKind, SyntaxKind } from 'ts-morph'
+import { Project, ScriptTarget, IndentationText, NewLineKind, QuoteKind, SyntaxKind, InMemoryFileSystemHost } from 'ts-morph'
 import YAML from 'js-yaml'
 import tsj from 'ts-json-schema-generator'
+import { join } from 'path'
 import { ParsedDTS } from './types.js'
 import * as schemaBuffer from './schema/buffer.js'
 import * as hackTransformApiForSchemaGen from './hack-transform-api-for-schema-gen.js'
+import { resolveDependencies } from './util.js'
 
-export function parse (schemaText: string): ParsedDTS {
+export async function parse (schemaText: string, opts?: {baseUrl?: string}): Promise<ParsedDTS> {
   const {project, ast} = genAst(schemaText)
+
+  if (opts.baseUrl) {
+    // resolve imports()
+    // TODO this semi works. Still todo:
+    // - Handle the many possible import sources correctly, including https urls
+    // - Correctly generate output when imported definitions are used (requires some kind of bundling)
+    await resolveDependencies(project, ast, opts.baseUrl)
+  }
 
   const metadata = {}
   const comment = ast.getStatementByKind(SyntaxKind.MultiLineCommentTrivia)
@@ -40,9 +50,9 @@ export function generateInterfaceSchemas (dts: ParsedDTS) {
   const exportMap = {methods: {}, events: {}}
 
   if (dts.metadata.type === 'api') {
-    const newDts = genAst(dts.text)
-    hackTransformApiForSchemaGen.transformAST(newDts.ast, exportMap)
-    project = newDts.project
+    // create a new temporary AST for the schema generation
+    project = copyProject(project)
+    hackTransformApiForSchemaGen.transformAST(project.getSourceFile('definition.d.ts'), exportMap)
   }
 
   const config = {
@@ -79,6 +89,37 @@ function genAst (text) {
     }
   })
 
-  const ast = project.createSourceFile(`definition.d.ts`, text)
+  const ast = project.createSourceFile(`/definition.d.ts`, text)
+  ast.saveSync()
   return {project, ast}
+}
+
+function copyProject (project: Project): Project {
+  const newProject = new Project({
+    useInMemoryFileSystem: true,
+    compilerOptions: {
+      target: ScriptTarget.Latest
+    },
+    manipulationSettings: {
+      indentationText: IndentationText.TwoSpaces,
+      useTrailingCommas: true,
+      newLineKind: NewLineKind.LineFeed,
+      quoteKind: QuoteKind.Single,
+      insertSpaceAfterOpeningAndBeforeClosingNonemptyBraces: true,
+    }
+  })
+  recursiveCopy('/', project.getFileSystem(), newProject)
+  return newProject
+}
+
+function recursiveCopy (path: string, src: InMemoryFileSystemHost, dst: Project) {
+  for (const filename of src.readDirSync(path)) {
+    const filepath = join(path, filename)
+    if (src.directoryExistsSync(filepath)) {
+      dst.createDirectory(filepath).saveSync()
+      recursiveCopy(filepath, src, dst)
+    } else {
+      dst.createSourceFile(filepath, src.readFileSync(filepath)).saveSync()
+    }
+  }
 }

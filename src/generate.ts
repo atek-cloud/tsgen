@@ -28,34 +28,32 @@ export function generate (dts: ParsedDTS, schema: object, exportMap: ExportMap, 
     manipulationSettings: {
       indentationText: IndentationText.TwoSpaces,
       useTrailingCommas: true,
-      // newLineKind: NewLineKind.LineFeed,
       quoteKind: QuoteKind.Single,
       insertSpaceAfterOpeningAndBeforeClosingNonemptyBraces: true,
     }
   });
 
+  const name = dts.metadata.id.split('/')[1]
+
   if (dts.metadata.type === 'api') {
-    const clientFile = project.createSourceFile(`${dts.metadata.id}.ts`, PRELUDE)
+    const clientFile = project.createSourceFile(`${name}.ts`, PRELUDE)
     generateApiClient(clientFile, dts, schema, exportMap, opts)
     clientFile.saveSync()
-    const serverFile = project.createSourceFile(`${dts.metadata.id}.server.ts`, PRELUDE)
-    // generateApiServer(serverFile, dts, schema, exportMap, opts)
+    const serverFile = project.createSourceFile(`${name}.server.ts`, PRELUDE)
+    generateApiServer(serverFile, dts, schema, exportMap, opts)
     serverFile.saveSync()
     return {
-      clientFile: project.getFileSystem().readFileSync(`${dts.metadata.id}.ts`),
-      serverFile: project.getFileSystem().readFileSync(`${dts.metadata.id}.server.ts`)
+      [`${name}.ts`]: project.getFileSystem().readFileSync(`${name}.ts`),
+      [`${name}.server.ts`]: project.getFileSystem().readFileSync(`${name}.server.ts`)
     }
   }
   if (dts.metadata.type === 'adb-record') {
-    const typeFile = project.createSourceFile(`${dts.metadata.id}.ts`, PRELUDE)
-    // TODO const clientFile = project.createSourceFile(`${schema.id}.client.ts`, PRELUDE)
-    // jsonSchemaGenerateTypes(toSafeString(schema.title || schema.id), schema.definition, {
-    //   sourceFile: typeFile,
-    //   topLevel: { isExported: true },
-    //   lifted: { isExported: true },
-    //   anyType: 'any'
-    // })
-    return {typeFile}
+    const recordFile = project.createSourceFile(`${name}.ts`, PRELUDE)
+    generateRecordInterface(recordFile, dts, schema, exportMap, opts)
+    recordFile.saveSync()
+    return {
+      [`${name}.ts`]: project.getFileSystem().readFileSync(`${name}.ts`),
+    }
   }
   throw new Error(`Unknown schema type: ${dts.metadata.type}`)
 }
@@ -139,14 +137,12 @@ function generateApiClient (clientFile: SourceFile, dts: ParsedDTS, schema: obje
     const emitterIface = clientFile.addInterface({name: emitterName})
     emitterIface.setIsExported(true)
 
-    // on (name: 'eventname', handler: (evt: {param1: type1, param2: type2...}) => void) {
-    //   this._on(name, handler)
-    // }
+    // on (name: 'eventname', handler: (evt: {param1: type1, param2: type2...}) => void): void
     for (const eventName in exportMap.events[emitterName]) {
       const ifaceMethod = emitterSrcIface.getMethods().find(m => removeQuotes(m.getParameters()[0].getType().getText()) === eventName)
       if (!ifaceMethod) throw new Error(`Failed to find emitter interface signature for ${eventName}`)
 
-      const emitterMethod = emitterIface.addMethod({name: 'on'})
+      const emitterMethod = emitterIface.addMethod({name: 'on', returnType: 'void'})
       emitterMethod.addParameter({
         name: 'name',
         type: `"${eventName}"`
@@ -182,36 +178,94 @@ function generateApiClient (clientFile: SourceFile, dts: ParsedDTS, schema: obje
 
 function generateApiServer (serverFile: SourceFile, dts: ParsedDTS,  schema: object, exportMap: ExportMap, opts: GenerateOpts) {
   const env = opts?.env || EnvEnum.DENO_USERLAND
+  const apiIface = dts.ast.getChildrenOfKind(SyntaxKind.InterfaceDeclaration).find(iface => iface.getDefaultKeyword())
 
   if (env === EnvEnum.DENO_USERLAND) {
+    // import { AtekRpcServer, AtekRpcServerHandlers } from '...'
     serverFile.addImportDeclaration({
       moduleSpecifier: DENO_RPC_IMPORT,
-      namedImports: [{ name: 'JsonRpcServer' }, { name: 'JsonRpcServerHandlers' }]
+      namedImports: [{ name: 'AtekRpcServer' }, { name: 'AtekRpcServerHandlers' }]
     })
   } else if (env === EnvEnum.HOST) {
+    // import { ApiBrokerServer, ApiBrokerServerHandlers } from '...'
     serverFile.addImportDeclaration({
       moduleSpecifier: HOST_APIBROKER_IMPORT,
       namedImports: [{ name: 'ApiBrokerServer' }, { name: 'ApiBrokerServerHandlers' }]
     })
   }
 
-  const serverClassName = `${toSafeString(dts.metadata.title || dts.metadata.id || '')}Server`
-  const serverClass = serverFile.addClass({
-    name: serverClassName
+  // const SCHEMAS = {...}
+  serverFile.addVariableStatement({
+    declarationKind: VariableDeclarationKind.Const,
+    declarations: [{
+      name: 'SCHEMAS',
+      initializer: JSON.stringify(schema)
+    }]
   })
+  // const EXPORT_MAP = {...}
+  serverFile.addVariableStatement({
+    declarationKind: VariableDeclarationKind.Const,
+    declarations: [{
+      name: 'EXPORT_MAP',
+      initializer: JSON.stringify(exportMap)
+    }]
+  })
+
+  // export default class FooServer extends AteRpcServer {
+  const serverClassName = `${toSafeString(apiIface.getName() || dts.metadata.title || dts.metadata.id || 'Api')}Server`
+  const serverClass = serverFile.addClass({name: serverClassName})
   if (env === EnvEnum.DENO_USERLAND) {
-    serverClass.setExtends('JsonRpcServer')
+    serverClass.setExtends('AtekRpcServer')
   } else if (env === EnvEnum.HOST) {
     serverClass.setExtends('ApiBrokerServer')
   }
   serverClass.setIsDefaultExport(true)
 
+  // constructor (handlers) {
+  //   super(SCHEMA, EXPORT_MAP, handlers: AtekRpcServerHandlers) 
+  // }
   const ctor = serverClass.addConstructor()
   const param = ctor.addParameter({name: 'handlers'})
   if (env === EnvEnum.DENO_USERLAND) {
-    param.setType('JsonRpcServerHandlers')
+    param.setType('AtekRpcServerHandlers')
   } else if (env === EnvEnum.HOST) {
     param.setType('ApiBrokerServerHandlers')
   }
-  ctor.setBodyText(`super(${JSON.stringify(schema, null, 2)}, handlers)`)
+  ctor.setBodyText(`super(SCHEMAS, EXPORT_MAP, handlers)`)
+}
+
+function generateRecordInterface (recordFile: SourceFile, dts: ParsedDTS, schema: object, exportMap: ExportMap, opts: GenerateOpts) {
+  // export const JSON_SCHEMA = {...}
+  recordFile.addVariableStatement({
+    declarationKind: VariableDeclarationKind.Const,
+    declarations: [{
+      name: 'JSON_SCHEMA',
+      initializer: JSON.stringify(schema)
+    }]
+  }).setIsExported(true)
+
+  // export const TEMPLATES = {...}
+  recordFile.addVariableStatement({
+    declarationKind: VariableDeclarationKind.Const,
+    declarations: [{
+      name: 'TEMPLATES',
+      initializer: JSON.stringify(dts.metadata.templates || {})
+    }]
+  }).setIsExported(true)
+
+  // copy all interfaces and types
+  dts.ast.forEachChild(node => {
+    switch (node.getKind()) {
+      case SyntaxKind.InterfaceDeclaration: {
+        recordFile.addInterface(node.asKind(SyntaxKind.InterfaceDeclaration).getStructure())
+        break
+      }
+      case SyntaxKind.TypeAliasDeclaration:
+        recordFile.addTypeAlias(node.asKind(SyntaxKind.TypeAliasDeclaration).getStructure())
+        break
+      case SyntaxKind.EnumDeclaration:
+        recordFile.addEnum(node.asKind(SyntaxKind.EnumDeclaration).getStructure())
+        break
+    }
+  })
 }

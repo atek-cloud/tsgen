@@ -1,3 +1,7 @@
+import { Project, SourceFile } from 'ts-morph'
+import { URL } from 'url'
+import { promises as fsp } from 'fs'
+import fetch from 'node-fetch'
 
 export function toSafeString (str: string): string {
   return (
@@ -36,4 +40,29 @@ export function removeQuotes (str: string): string {
   const match = QUOTES_WRAPPER_RE.exec(str)
   if (match) return match[1]
   return str
+}
+
+export async function resolveDependencies (project: Project, file: SourceFile, baseUrl: string) {
+  const deps = file.getImportDeclarations()
+  for (const dep of deps) {
+    const spec = removeQuotes(dep.getModuleSpecifier().getText())
+    let filename = spec
+    if (!filename.endsWith('.d.ts')) {
+      filename = filename + '.d.ts'
+    }
+    const url = (new URL(filename, baseUrl)).toString()
+    let text
+    try {
+      if (url.startsWith('file://')) {
+        text = await fsp.readFile(url.slice('file://'.length), 'utf8')
+      } else {
+        text = await (await fetch(url)).text()
+      }
+    } catch (e) {
+      throw new Error(`Failed to fetch import: ${url}`)
+    }
+    let projectFilename = filename
+    if (projectFilename.startsWith('./')) projectFilename = projectFilename.slice(1)
+    project.createSourceFile(projectFilename, text).saveSync()
+  }
 }
