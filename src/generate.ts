@@ -69,6 +69,11 @@ function generateApiClient (clientFile: SourceFile, dts: ParsedDTS, schema: obje
       namedImports: [{ name: 'AtekRpcClient' }]
     })
   } else if (env === EnvEnum.HOST) {
+    // import { URL } from 'url'
+    clientFile.addImportDeclaration({
+      moduleSpecifier: 'url',
+      namedImports: [{ name: 'URL' }]
+    })
     // import { ApiBrokerClient } from '...'
     clientFile.addImportDeclaration({
       moduleSpecifier: HOST_APIBROKER_IMPORT,
@@ -187,6 +192,11 @@ function generateApiServer (serverFile: SourceFile, dts: ParsedDTS,  schema: obj
       namedImports: [{ name: 'AtekRpcServer' }, { name: 'AtekRpcServerHandlers' }]
     })
   } else if (env === EnvEnum.HOST) {
+    // import { URL } from 'url'
+    serverFile.addImportDeclaration({
+      moduleSpecifier: 'url',
+      namedImports: [{ name: 'URL' }]
+    })
     // import { ApiBrokerServer, ApiBrokerServerHandlers } from '...'
     serverFile.addImportDeclaration({
       moduleSpecifier: HOST_APIBROKER_IMPORT,
@@ -235,6 +245,15 @@ function generateApiServer (serverFile: SourceFile, dts: ParsedDTS,  schema: obj
 }
 
 function generateRecordInterface (recordFile: SourceFile, dts: ParsedDTS, schema: object, exportMap: ExportMap, opts: GenerateOpts) {
+  const env = opts?.env || EnvEnum.DENO_USERLAND
+  if (env === EnvEnum.HOST) {
+    // import { URL } from 'url'
+    recordFile.addImportDeclaration({
+      moduleSpecifier: 'url',
+      namedImports: [{ name: 'URL' }]
+    })
+  }
+
   // export const JSON_SCHEMA = {...}
   recordFile.addVariableStatement({
     declarationKind: VariableDeclarationKind.Const,
