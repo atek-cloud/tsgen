@@ -94,6 +94,24 @@ function generateApiClient (clientFile: SourceFile, dts: ParsedDTS, schema: obje
     })
   }
 
+  // export const ID = '...'
+  clientFile.addVariableStatement({
+    declarationKind: VariableDeclarationKind.Const,
+    declarations: [{
+      name: 'ID',
+      initializer: JSON.stringify(dts.metadata.id)
+    }]
+  }).setIsExported(true)
+
+  // export const REVISION = '...'
+  clientFile.addVariableStatement({
+    declarationKind: VariableDeclarationKind.Const,
+    declarations: [{
+      name: 'REVISION',
+      initializer: dts.metadata.revision ? dts.metadata.revision : 'undefined'
+    }]
+  }).setIsExported(true)
+
   // const SCHEMAS = {...}
   clientFile.addVariableStatement({
     declarationKind: VariableDeclarationKind.Const,
@@ -123,10 +141,10 @@ function generateApiClient (clientFile: SourceFile, dts: ParsedDTS, schema: obje
   }
 
   // constructor () {
-  //   super(SCHEMAS, EXPORT_MAP)
+  //   super("api/id", SCHEMAS, EXPORT_MAP)
   // }
   const ctor = clientClass.addConstructor()
-  ctor.setBodyText(`super(SCHEMAS, EXPORT_MAP)`)
+  ctor.setBodyText(`super(${JSON.stringify(dts.metadata.id)}, SCHEMAS, EXPORT_MAP)`)
 
   // methodName (param1: type1, param2: type2): Promise<returnType> {
   //   return this._rpc("methodName", [param1, param2]) 
@@ -229,6 +247,24 @@ function generateApiServer (serverFile: SourceFile, dts: ParsedDTS,  schema: obj
     })
   }
 
+  // export const ID = '...'
+  serverFile.addVariableStatement({
+    declarationKind: VariableDeclarationKind.Const,
+    declarations: [{
+      name: 'ID',
+      initializer: JSON.stringify(dts.metadata.id)
+    }]
+  }).setIsExported(true)
+
+  // export const REVISION = '...'
+  serverFile.addVariableStatement({
+    declarationKind: VariableDeclarationKind.Const,
+    declarations: [{
+      name: 'REVISION',
+      initializer: dts.metadata.revision ? dts.metadata.revision : 'undefined'
+    }]
+  }).setIsExported(true)
+
   // const SCHEMAS = {...}
   serverFile.addVariableStatement({
     declarationKind: VariableDeclarationKind.Const,
@@ -278,6 +314,24 @@ function generateRecordInterface (recordFile: SourceFile, dts: ParsedDTS, schema
       namedImports: [{ name: 'URL' }]
     })
   }
+
+  // export const ID = '...'
+  recordFile.addVariableStatement({
+    declarationKind: VariableDeclarationKind.Const,
+    declarations: [{
+      name: 'ID',
+      initializer: JSON.stringify(dts.metadata.id)
+    }]
+  }).setIsExported(true)
+
+  // export const REVISION = '...'
+  recordFile.addVariableStatement({
+    declarationKind: VariableDeclarationKind.Const,
+    declarations: [{
+      name: 'REVISION',
+      initializer: dts.metadata.revision ? dts.metadata.revision : 'undefined'
+    }]
+  }).setIsExported(true)
 
   // export const JSON_SCHEMA = {...}
   recordFile.addVariableStatement({
