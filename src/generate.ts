@@ -200,7 +200,7 @@ function generateApiClient (clientFile: SourceFile, dts: ParsedDTS, schema: obje
         if (name === apiIface.getName() || name in exportMap.events) {
           return
         }
-        clientFile.addInterface(iface.getStructure())
+        clientFile.addInterface(transformIfaceTypes(iface.getStructure()))
         break
       }
       case SyntaxKind.TypeAliasDeclaration:
@@ -355,7 +355,7 @@ function generateRecordInterface (recordFile: SourceFile, dts: ParsedDTS, schema
   dts.ast.forEachChild(node => {
     switch (node.getKind()) {
       case SyntaxKind.InterfaceDeclaration: {
-        recordFile.addInterface(node.asKind(SyntaxKind.InterfaceDeclaration).getStructure())
+        recordFile.addInterface(transformIfaceTypes(node.asKind(SyntaxKind.InterfaceDeclaration).getStructure()))
         break
       }
       case SyntaxKind.TypeAliasDeclaration:
@@ -366,4 +366,15 @@ function generateRecordInterface (recordFile: SourceFile, dts: ParsedDTS, schema
         break
     }
   })
+}
+
+function transformIfaceTypes (structure: InterfaceDeclarationStructure): InterfaceDeclarationStructure {
+  // We use some types like 'Date' or 'Uint8Array' in our d.ts to indicate constraints on data
+  // The json-schemas already transform these to primitive types
+  // We need to do the same in the generated code
+  for (const property of structure.properties) {
+    property.type = (property.type as string)
+      .replace(/Date/g, 'string')
+  }
+  return structure
 }
