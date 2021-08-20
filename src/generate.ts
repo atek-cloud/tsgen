@@ -54,7 +54,7 @@ export function generate (dts: ParsedDTS, schema: object, exportMap: ExportMap, 
     generateRecordInterface(recordFile, dts, schema, exportMap, opts)
     recordFile.saveSync()
     return {
-      [`${name}.ts`]: project.getFileSystem().readFileSync(`${name}.ts`),
+      [`${name}.ts`]: project.getFileSystem().readFileSync(`${name}.ts`)
     }
   }
   throw new Error(`Unknown schema type: ${dts.metadata.type}`)
@@ -307,11 +307,33 @@ function generateApiServer (serverFile: SourceFile, dts: ParsedDTS,  schema: obj
 
 function generateRecordInterface (recordFile: SourceFile, dts: ParsedDTS, schema: object, exportMap: ExportMap, opts: GenerateOpts) {
   const env = opts?.env || EnvEnum.DENO_USERLAND
-  if (env === EnvEnum.HOST || env === EnvEnum.NODE_USERLAND) {
+  if (env === EnvEnum.DENO_USERLAND) {
+    // import { AtekDbRecordClient, AtekDbApiClient } from '...'
+    recordFile.addImportDeclaration({
+      moduleSpecifier: DENO_RPC_IMPORT,
+      namedImports: [{ name: 'AtekDbRecordClient' }, { name: 'AtekDbApiClient' }]
+    })
+  } else if (env === EnvEnum.NODE_USERLAND) {
     // import { URL } from 'url'
     recordFile.addImportDeclaration({
       moduleSpecifier: 'url',
       namedImports: [{ name: 'URL' }]
+    })
+    // import { AtekDbRecordClient, AtekDbApiClient } from '...'
+    recordFile.addImportDeclaration({
+      moduleSpecifier: NODE_RPC_IMPORT,
+      namedImports: [{ name: 'AtekDbRecordClient' }, { name: 'AtekDbApiClient' }]
+    })
+  } else if (env === EnvEnum.HOST) {
+    // import { URL } from 'url'
+    recordFile.addImportDeclaration({
+      moduleSpecifier: 'url',
+      namedImports: [{ name: 'URL' }]
+    })
+    // import { AtekDbRecordClient, AtekDbApiClient } from '...'
+    recordFile.addImportDeclaration({
+      moduleSpecifier: HOST_APIBROKER_IMPORT,
+      namedImports: [{ name: 'AtekDbRecordClient' }, { name: 'AtekDbApiClient' }]
     })
   }
 
@@ -366,6 +388,21 @@ function generateRecordInterface (recordFile: SourceFile, dts: ParsedDTS, schema
         break
     }
   })
+
+  // export class RecordTypeTable extends AtekDbRecordClient<RecordType> {}
+  const mainIface = recordFile.getInterface(iface => iface.isDefaultExport())
+  const tableCls = recordFile.addClass({
+    name: `${mainIface.getName()}Table`,
+    extends: `AtekDbRecordClient<${mainIface.getName()}>`
+  })
+  tableCls.setIsExported(true)
+
+  // constructor (api: AtekDbApiClient) {
+  //    super(api, ID, REVISION, TEMPLATES, JSON_SCHEMA)
+  // }
+  tableCls.addConstructor({
+    parameters: [{name: 'api', type: 'AtekDbApiClient'}]
+  }).setBodyText(`super(api, ID, REVISION, TEMPLATES, JSON_SCHEMA)`)
 }
 
 function transformIfaceTypes (env: EnvEnum, structure: InterfaceDeclarationStructure): InterfaceDeclarationStructure {
