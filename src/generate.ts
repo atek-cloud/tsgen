@@ -397,12 +397,12 @@ function generateRecordInterface (recordFile: SourceFile, dts: ParsedDTS, schema
   })
   tableCls.setIsExported(true)
 
-  // constructor (api: AtekDbApiClient) {
-  //    super(api, ID, REVISION, TEMPLATES, JSON_SCHEMA)
+  // constructor (api: AtekDbApiClient, dbId: string) {
+  //    super(api, dbId, ID, REVISION, TEMPLATES, JSON_SCHEMA)
   // }
   tableCls.addConstructor({
-    parameters: [{name: 'api', type: 'AtekDbApiClient'}]
-  }).setBodyText(`super(api, ID, REVISION, TEMPLATES, JSON_SCHEMA)`)
+    parameters: [{name: 'api', type: 'AtekDbApiClient'}, {name: 'dbId', type: 'string'}]
+  }).setBodyText(`super(api, dbId, ID, REVISION, TEMPLATES, JSON_SCHEMA)`)
 }
 
 function transformIfaceTypes (env: EnvEnum, structure: InterfaceDeclarationStructure): InterfaceDeclarationStructure {
