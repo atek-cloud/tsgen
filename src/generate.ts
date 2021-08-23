@@ -401,7 +401,7 @@ function generateRecordInterface (recordFile: SourceFile, dts: ParsedDTS, schema
   //    super(api, dbId, ID, REVISION, TEMPLATES, JSON_SCHEMA)
   // }
   tableCls.addConstructor({
-    parameters: [{name: 'api', type: 'AtekDbApiClient'}, {name: 'dbId', type: 'string'}]
+    parameters: [{name: 'api', type: 'AtekDbApiClient'}, {name: 'dbId', type: 'string', hasQuestionToken: true}]
   }).setBodyText(`super(api, dbId, ID, REVISION, TEMPLATES, JSON_SCHEMA)`)
 }
 
