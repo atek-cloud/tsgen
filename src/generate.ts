@@ -412,6 +412,7 @@ function transformIfaceTypes (env: EnvEnum, structure: InterfaceDeclarationStruc
   for (const property of structure.properties) {
     property.type = (property.type as string)
       .replace(/Date/g, 'string')
+      .replace(/URL/g, 'string')
     if (env === EnvEnum.HOST || env === EnvEnum.NODE_USERLAND) {
       property.type = (property.type as string)
         .replace(/Uint8Array/g, 'Buffer')
