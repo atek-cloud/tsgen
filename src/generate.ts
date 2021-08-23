@@ -38,6 +38,9 @@ export function generate (dts: ParsedDTS, schema: object, exportMap: ExportMap, 
   const name = dts.metadata.id.split('/')[1]
 
   if (dts.metadata.type === 'api') {
+    if (dts.metadata.transport === 'proxy') {
+      return {} // we dont generate interfaces for proxy apis
+    }
     const clientFile = project.createSourceFile(`${name}.ts`, PRELUDE(opts.env))
     generateApiClient(clientFile, dts, schema, exportMap, opts)
     clientFile.saveSync()
