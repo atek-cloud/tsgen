@@ -4,6 +4,7 @@ import tsj from 'ts-json-schema-generator'
 import { join } from 'path'
 import { ParsedDTS } from './types.js'
 import * as schemaBuffer from './schema/buffer.js'
+import * as schemaUrl from './schema/url.js'
 import * as hackTransformApiForSchemaGen from './hack-transform-api-for-schema-gen.js'
 import { resolveDependencies } from './util.js'
 
@@ -62,9 +63,11 @@ export function generateInterfaceSchemas (dts: ParsedDTS) {
   const program = project.getProgram().compilerObject
   const parser = tsj.createParser(program, config, (prs) => {
     prs.addNodeParser(new schemaBuffer.BufferParser())
+    prs.addNodeParser(new schemaUrl.UrlParser())
   })
   const formatter = tsj.createFormatter(config, (fmt, circularReferenceTypeFormatter) => {
     fmt.addTypeFormatter(new schemaBuffer.BufferFormatter())
+    fmt.addTypeFormatter(new schemaUrl.UrlFormatter())
   })
   const gen = new tsj.SchemaGenerator(program, parser, formatter, config)
   const schema = gen.createSchema()

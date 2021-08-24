@@ -50,6 +50,50 @@ async function doGenerate (args) {
   console.log('Done')
   */
 }
+
+async function doGenerateFile (args) {
+  const execPath = process.cwd()
+  if (!args.in) throw new Error('Must specify --in')
+  const inFilePath = path.resolve(execPath, args.in)
+  const outFolderPath = path.resolve(execPath, args.out || DEFAULT_OUT_DIR)
+  await fsp.mkdir(outFolderPath).catch(e => undefined)
+
+  const def = {name: path.basename(inFilePath), text: await fsp.readFile(inFilePath, 'utf8')}
+  console.log(def.name, 'read')
+
+  const baseUrl = `file://${path.dirname(inFilePath)}/`
+  console.log('Generating code for schema', def.name)
+  let dts, files
+  try {
+    dts = await parse(def.text, {baseUrl})
+    if (!dts.metadata.id || !dts.metadata.id.includes('/')) {
+      throw new Error('DTS ID must be set and must fit the "domain/name" form')
+    }
+    if (dts.metadata.type !== 'api' && dts.metadata.type !== 'adb-record') {
+      throw new Error('DTS type must be "api" or "adb-record"')
+    }
+    const {schema, exportMap} = generateInterfaceSchemas(dts)
+    files = generate(dts, schema, exportMap, {env: args.env || EnvEnum.DENO_USERLAND})
+  } catch (e) {
+    if (args['skip-errors']) {
+      console.log('  Skipping due to error')
+      console.log(' ', e)
+    } else {
+      throw e
+    }
+  }
+
+  const [dtsDomain] = dts.metadata.id.split('/')
+  await fsp.mkdir(path.join(outFolderPath, dtsDomain)).catch(e => undefined)
+  for (const k in files) {
+    const outFilePath = path.join(outFolderPath, dtsDomain, k)
+    console.log('  Writing', outFilePath)
+    await fsp.writeFile(outFilePath, files[k])
+  }
+
+  console.log('Done')
+}
+
 async function doGenerateFolder (args) {
   const execPath = process.cwd()
   if (!args.in) throw new Error('Must specify --in')
@@ -57,31 +101,31 @@ async function doGenerateFolder (args) {
   const outFolderPath = path.resolve(execPath, args.out || DEFAULT_OUT_DIR)
   await fsp.mkdir(outFolderPath).catch(e => undefined)
 
-  const apdls = []
+  const defs = []
   try {
     const names = await fsp.readdir(inFolderPath)
     for (const name of names) {
       if (name.endsWith('.d.ts')) {
-        apdls.push({name, text: await fsp.readFile(path.join(inFolderPath, name), 'utf8')})
+        defs.push({name, text: await fsp.readFile(path.join(inFolderPath, name), 'utf8')})
       }
     }
   } catch (e) {
     console.error(e)
     process.exit(1)
   }
-  console.log(apdls.length, 'apdls found in:', inFolderPath)
+  console.log(defs.length, 'd.ts files found in:', inFolderPath)
 
   const baseUrl = `file://${inFolderPath}${inFolderPath.endsWith('/') ? '' : '/'}`
-  for (const apdl of apdls) {
-    console.log('Generating code for schema', apdl.name)
+  for (const def of defs) {
+    console.log('Generating code for schema', def.name)
     let dts, files
     try {
-      dts = await parse(apdl.text, {baseUrl})
+      dts = await parse(def.text, {baseUrl})
       if (!dts.metadata.id || !dts.metadata.id.includes('/')) {
-        throw new Error('APDL ID must be set and must fit the "domain/name" form')
+        throw new Error('DTS ID must be set and must fit the "domain/name" form')
       }
       if (dts.metadata.type !== 'api' && dts.metadata.type !== 'adb-record') {
-        throw new Error('APDL type must be "api" or "adb-record"')
+        throw new Error('DTS type must be "api" or "adb-record"')
       }
       const {schema, exportMap} = generateInterfaceSchemas(dts)
       files = generate(dts, schema, exportMap, {env: args.env || EnvEnum.DENO_USERLAND})
@@ -94,10 +138,10 @@ async function doGenerateFolder (args) {
       }
     }
 
-    const [apdlDomain] = dts.metadata.id.split('/')
-    await fsp.mkdir(path.join(outFolderPath, apdlDomain)).catch(e => undefined)
+    const [dtsDomain] = dts.metadata.id.split('/')
+    await fsp.mkdir(path.join(outFolderPath, dtsDomain)).catch(e => undefined)
     for (const k in files) {
-      const outFilePath = path.join(outFolderPath, apdlDomain, k)
+      const outFilePath = path.join(outFolderPath, dtsDomain, k)
       console.log('  Writing', outFilePath)
       await fsp.writeFile(outFilePath, files[k])
     }
@@ -106,16 +150,11 @@ async function doGenerateFolder (args) {
   console.log('Done')
 }
 
-async function fetchSchema (schemaDomain, schemaName) {
-  // TODO
-  return JSON.parse(await fsp.readFile(path.join(schemasFolderPath, schemaName + '.json'), 'utf8'))
-}
-
 const match = subcommand({
   commands: [
     {
-      name: 'gen',
-      command: doGenerate
+      name: 'gen-file',
+      command: doGenerateFile
     },
     {
       name: 'gen-folder',
