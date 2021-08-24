@@ -268,22 +268,23 @@ function generateApiServer (serverFile: SourceFile, dts: ParsedDTS,  schema: obj
     }]
   }).setIsExported(true)
 
-  // const SCHEMAS = {...}
+  // export const SCHEMAS = {...}
   serverFile.addVariableStatement({
     declarationKind: VariableDeclarationKind.Const,
     declarations: [{
       name: 'SCHEMAS',
       initializer: JSON.stringify(schema)
     }]
-  })
-  // const EXPORT_MAP = {...}
+  }).setIsExported(true)
+
+  // export const EXPORT_MAP = {...}
   serverFile.addVariableStatement({
     declarationKind: VariableDeclarationKind.Const,
     declarations: [{
       name: 'EXPORT_MAP',
       initializer: JSON.stringify(exportMap)
     }]
-  })
+  }).setIsExported(true)
 
   // export default class FooServer extends AteRpcServer {
   const serverClassName = `${toSafeString(apiIface.getName() || dts.metadata.title || dts.metadata.id || 'Api')}Server`
@@ -294,6 +295,18 @@ function generateApiServer (serverFile: SourceFile, dts: ParsedDTS,  schema: obj
     serverClass.setExtends('ApiBrokerServer')
   }
   serverClass.setIsDefaultExport(true)
+
+  // ID = '...'
+  serverClass.addProperty({
+    name: 'ID', 
+    initializer: JSON.stringify(dts.metadata.id)
+  })
+
+  // REVISION = '...'
+  serverClass.addProperty({
+    name: 'REVISION', 
+    initializer: dts.metadata.revision ? dts.metadata.revision : 'undefined'
+  })
 
   // constructor (handlers) {
   //   super(SCHEMA, EXPORT_MAP, handlers: AtekRpcServerHandlers) 
