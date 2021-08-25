@@ -115,10 +115,12 @@ function transformIface (ast: SourceFile, iface: InterfaceDeclaration, exportMap
         text = removeImport(text)  // strip the `import("/definition").`
         return text
       })()
-      fnIface.addProperty({
-        name: 'returns',
-        type: returnsText
-      })
+      if (!['null', 'void', 'undefined'].includes(returnsText)) {
+        fnIface.addProperty({
+          name: 'returns',
+          type: returnsText
+        })
+      }
     }
   }
 }
