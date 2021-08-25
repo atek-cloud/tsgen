@@ -115,24 +115,6 @@ function generateApiClient (clientFile: SourceFile, dts: ParsedDTS, schema: obje
     }]
   }).setIsExported(true)
 
-  // const SCHEMAS = {...}
-  clientFile.addVariableStatement({
-    declarationKind: VariableDeclarationKind.Const,
-    declarations: [{
-      name: 'SCHEMAS',
-      initializer: JSON.stringify(schema)
-    }]
-  })
-
-  // const EXPORT_MAP = {...}
-  clientFile.addVariableStatement({
-    declarationKind: VariableDeclarationKind.Const,
-    declarations: [{
-      name: 'EXPORT_MAP',
-      initializer: JSON.stringify(exportMap)
-    }]
-  })
-
   // export default class FooClient extends AtekRpcClient {
   const clientClassName = `${toSafeString(apiIface.getName() || dts.metadata.title || dts.metadata.id || 'Api')}Client`
   const clientClass = clientFile.addClass({name: clientClassName})
@@ -144,10 +126,10 @@ function generateApiClient (clientFile: SourceFile, dts: ParsedDTS, schema: obje
   }
 
   // constructor () {
-  //   super("api/id", SCHEMAS, EXPORT_MAP)
+  //   super("api/id")
   // }
   const ctor = clientClass.addConstructor()
-  ctor.setBodyText(`super(${JSON.stringify(dts.metadata.id)}, SCHEMAS, EXPORT_MAP)`)
+  ctor.setBodyText(`super(${JSON.stringify(dts.metadata.id)})`)
 
   // methodName (param1: type1, param2: type2): Promise<returnType> {
   //   return this._rpc("methodName", [param1, param2]) 
@@ -163,10 +145,10 @@ function generateApiClient (clientFile: SourceFile, dts: ParsedDTS, schema: obje
 
     if (ifaceMethod.getName() === 'subscribe') {
       classMethod.setReturnType(`${Object.keys(exportMap.events).join(' | ')}`)
-      classMethod.setBodyText(`return this._subscribe([${paramNames.join(', ')}])`)
+      classMethod.setBodyText(`return this.$subscribe([${paramNames.join(', ')}])`)
     } else  {
       classMethod.setReturnType(`Promise<${removeImport(removeGenerics(ifaceMethod.getReturnType().getText()))}>`)
-      classMethod.setBodyText(`return this._rpc(${JSON.stringify(ifaceMethod.getName())}, [${paramNames.join(', ')}])`)
+      classMethod.setBodyText(`return this.$rpc(${JSON.stringify(ifaceMethod.getName())}, [${paramNames.join(', ')}])`)
     }
   }
 
@@ -308,8 +290,8 @@ function generateApiServer (serverFile: SourceFile, dts: ParsedDTS,  schema: obj
     initializer: dts.metadata.revision ? dts.metadata.revision : 'undefined'
   })
 
-  // constructor (handlers) {
-  //   super(SCHEMA, EXPORT_MAP, handlers: AtekRpcServerHandlers) 
+  // constructor (handlers: AtekRpcServerHandlers) {
+  //   super(handlers, SCHEMA, EXPORT_MAP) 
   // }
   const ctor = serverClass.addConstructor()
   const param = ctor.addParameter({name: 'handlers'})
@@ -318,7 +300,7 @@ function generateApiServer (serverFile: SourceFile, dts: ParsedDTS,  schema: obj
   } else if (env === EnvEnum.HOST) {
     param.setType('ApiBrokerServerHandlers')
   }
-  ctor.setBodyText(`super(SCHEMAS, EXPORT_MAP, handlers)`)
+  ctor.setBodyText(`super(handlers, SCHEMAS, EXPORT_MAP)`)
 }
 
 function generateRecordInterface (recordFile: SourceFile, dts: ParsedDTS, schema: object, exportMap: ExportMap, opts: GenerateOpts) {
