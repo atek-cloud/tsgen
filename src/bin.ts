@@ -51,11 +51,13 @@ async function doGenerate (args) {
   */
 }
 
-async function doGenerateFile (args) {
+export async function doGenerateFile (args) {
   const execPath = process.cwd()
   if (!args.in) throw new Error('Must specify --in')
+  if (!args.out) throw new Error('Must specify --out')
+  if (!args.env) throw new Error('Must specify --env')
   const inFilePath = path.resolve(execPath, args.in)
-  const outFolderPath = path.resolve(execPath, args.out || DEFAULT_OUT_DIR)
+  const outFolderPath = path.resolve(execPath, args.out)
   await fsp.mkdir(outFolderPath).catch(e => undefined)
 
   const def = {name: path.basename(inFilePath), text: await fsp.readFile(inFilePath, 'utf8')}
@@ -94,11 +96,13 @@ async function doGenerateFile (args) {
   console.log('Done')
 }
 
-async function doGenerateFolder (args) {
+export async function doGenerateFolder (args) {
   const execPath = process.cwd()
   if (!args.in) throw new Error('Must specify --in')
+  if (!args.out) throw new Error('Must specify --out')
+  if (!args.env) throw new Error('Must specify --env')
   const inFolderPath = path.resolve(execPath, args.in)
-  const outFolderPath = path.resolve(execPath, args.out || DEFAULT_OUT_DIR)
+  const outFolderPath = path.resolve(execPath, args.out)
   await fsp.mkdir(outFolderPath).catch(e => undefined)
 
   const defs = []
