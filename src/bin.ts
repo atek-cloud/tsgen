@@ -37,7 +37,7 @@ async function doGenerate (args) {
     const schema = await fetchSchema(schemaDomain, schemaName)
 
     console.log('Generating code for schema', schemaId)
-    const files = await generate(schema, {env: args.env || 'deno-userland'})
+    const files = await generate(schema, {env: args.env || 'node'})
 
     await fsp.mkdir(path.join(outFolderPath, schemaDomain)).catch(e => undefined)
     for (const k in files) {
@@ -75,7 +75,7 @@ export async function doGenerateFile (args) {
       throw new Error('DTS type must be "api" or "adb-record"')
     }
     const {schema, exportMap} = generateInterfaceSchemas(dts)
-    files = generate(dts, schema, exportMap, {env: args.env || EnvEnum.DENO_USERLAND})
+    files = generate(dts, schema, exportMap, {env: args.env || EnvEnum.NODE})
   } catch (e) {
     if (args['skip-errors']) {
       console.log('  Skipping due to error')
@@ -132,7 +132,7 @@ export async function doGenerateFolder (args) {
         throw new Error('DTS type must be "api" or "adb-record"')
       }
       const {schema, exportMap} = generateInterfaceSchemas(dts)
-      files = generate(dts, schema, exportMap, {env: args.env || EnvEnum.DENO_USERLAND})
+      files = generate(dts, schema, exportMap, {env: args.env || EnvEnum.NODE})
     } catch (e) {
       if (args['skip-errors']) {
         console.log('  Skipping due to error')

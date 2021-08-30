@@ -17,8 +17,8 @@ const PRELUDE = (env: EnvEnum) => `
 
 export function generate (dts: ParsedDTS, schema: object, exportMap: ExportMap, opts?: GenerateOpts) {
   if (opts?.env) {
-    if (opts.env !== EnvEnum.DENO_USERLAND && opts.env !== EnvEnum.NODE_USERLAND && opts.env !== EnvEnum.HOST) {
-      throw new Error(`The environment must be "deno-userland", "node-userland", or "host". "${opts.env}" is not valid.`)
+    if (opts.env !== EnvEnum.NODE && opts.env !== EnvEnum.HOST) {
+      throw new Error(`The environment must be "node", or "host". "${opts.env}" is not valid.`)
     }
   }
 
@@ -64,16 +64,10 @@ export function generate (dts: ParsedDTS, schema: object, exportMap: ExportMap, 
 }
 
 function generateApiClient (clientFile: SourceFile, dts: ParsedDTS, schema: object, exportMap: ExportMap, opts: GenerateOpts) {
-  const env = opts?.env || EnvEnum.DENO_USERLAND
+  const env = opts?.env || EnvEnum.NODE
   const apiIface = dts.ast.getChildrenOfKind(SyntaxKind.InterfaceDeclaration).find(iface => iface.getDefaultKeyword())
 
-  if (env === EnvEnum.DENO_USERLAND) {
-    // import { AtekRpcClient } from '...'
-    clientFile.addImportDeclaration({
-      moduleSpecifier: DENO_RPC_IMPORT,
-      namedImports: [{ name: 'AtekRpcClient' }]
-    })
-  } else if (env === EnvEnum.NODE_USERLAND) {
+  if (env === EnvEnum.NODE) {
     // import { URL } from 'url'
     clientFile.addImportDeclaration({
       moduleSpecifier: 'url',
@@ -119,7 +113,7 @@ function generateApiClient (clientFile: SourceFile, dts: ParsedDTS, schema: obje
   const clientClassName = `${toSafeString(apiIface.getName() || dts.metadata.title || dts.metadata.id || 'Api')}Client`
   const clientClass = clientFile.addClass({name: clientClassName})
   clientClass.setIsDefaultExport(true)
-  if (env === EnvEnum.DENO_USERLAND || env === EnvEnum.NODE_USERLAND) {
+  if (env === EnvEnum.NODE) {
     clientClass.setExtends('AtekRpcClient')
   } else if (env === EnvEnum.HOST) {
     clientClass.setExtends('ApiBrokerClient')
@@ -199,16 +193,10 @@ function generateApiClient (clientFile: SourceFile, dts: ParsedDTS, schema: obje
 }
 
 function generateApiServer (serverFile: SourceFile, dts: ParsedDTS,  schema: object, exportMap: ExportMap, opts: GenerateOpts) {
-  const env = opts?.env || EnvEnum.DENO_USERLAND
+  const env = opts?.env || EnvEnum.NODE
   const apiIface = dts.ast.getChildrenOfKind(SyntaxKind.InterfaceDeclaration).find(iface => iface.getDefaultKeyword())
 
-  if (env === EnvEnum.DENO_USERLAND) {
-    // import { AtekRpcServer, AtekRpcServerHandlers } from '...'
-    serverFile.addImportDeclaration({
-      moduleSpecifier: DENO_RPC_IMPORT,
-      namedImports: [{ name: 'AtekRpcServer' }, { name: 'AtekRpcServerHandlers' }]
-    })
-  } else if (env === EnvEnum.NODE_USERLAND) {
+  if (env === EnvEnum.NODE) {
     // import { URL } from 'url'
     serverFile.addImportDeclaration({
       moduleSpecifier: 'url',
@@ -271,7 +259,7 @@ function generateApiServer (serverFile: SourceFile, dts: ParsedDTS,  schema: obj
   // export default class FooServer extends AteRpcServer {
   const serverClassName = `${toSafeString(apiIface.getName() || dts.metadata.title || dts.metadata.id || 'Api')}Server`
   const serverClass = serverFile.addClass({name: serverClassName})
-  if (env === EnvEnum.DENO_USERLAND || env === EnvEnum.NODE_USERLAND) {
+  if (env === EnvEnum.NODE) {
     serverClass.setExtends('AtekRpcServer')
   } else if (env === EnvEnum.HOST) {
     serverClass.setExtends('ApiBrokerServer')
@@ -295,7 +283,7 @@ function generateApiServer (serverFile: SourceFile, dts: ParsedDTS,  schema: obj
   // }
   const ctor = serverClass.addConstructor()
   const param = ctor.addParameter({name: 'handlers'})
-  if (env === EnvEnum.DENO_USERLAND || env === EnvEnum.NODE_USERLAND) {
+  if (env === EnvEnum.NODE) {
     param.setType('AtekRpcServerHandlers')
   } else if (env === EnvEnum.HOST) {
     param.setType('ApiBrokerServerHandlers')
@@ -304,14 +292,8 @@ function generateApiServer (serverFile: SourceFile, dts: ParsedDTS,  schema: obj
 }
 
 function generateRecordInterface (recordFile: SourceFile, dts: ParsedDTS, schema: object, exportMap: ExportMap, opts: GenerateOpts) {
-  const env = opts?.env || EnvEnum.DENO_USERLAND
-  if (env === EnvEnum.DENO_USERLAND) {
-    // import { AtekDbRecordClient, AtekDbApiClient } from '...'
-    recordFile.addImportDeclaration({
-      moduleSpecifier: DENO_RPC_IMPORT,
-      namedImports: [{ name: 'AtekDbRecordClient' }, { name: 'AtekDbApiClient' }]
-    })
-  } else if (env === EnvEnum.NODE_USERLAND) {
+  const env = opts?.env || EnvEnum.NODE
+  if (env === EnvEnum.NODE) {
     // import { URL } from 'url'
     recordFile.addImportDeclaration({
       moduleSpecifier: 'url',
@@ -411,7 +393,7 @@ function transformIfaceTypes (env: EnvEnum, structure: InterfaceDeclarationStruc
     property.type = (property.type as string)
       .replace(/Date/g, 'string')
       .replace(/URL/g, 'string')
-    if (env === EnvEnum.HOST || env === EnvEnum.NODE_USERLAND) {
+    if (env === EnvEnum.HOST || env === EnvEnum.NODE) {
       property.type = (property.type as string)
         .replace(/Uint8Array/g, 'Buffer')
     }

@@ -13,8 +13,7 @@ export interface GenerateOpts {
 }
 
 export enum EnvEnum {
-  DENO_USERLAND = 'deno-userland',
-  NODE_USERLAND = 'node-userland',
+  NODE = 'node',
   HOST = 'host'
 }
 
