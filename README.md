@@ -1,273 +1,104 @@
 # `tsgen` Typescript generator for Atek
 
-Atek defines RPC and database schemas using `.d.ts` files called APDLs.
+Atek defines RPC and database schemas using URL IDs and (in some cases) JSON Schemas.
 
-This program generates Typescript APIs based on those APDLs. The generated API files provide correct type signatures, runtime type-checking, and the underlying RPC behaviors.
+To make life easier, we use `.d.ts` files to define the schemas and API interfaces. This tool generates client and server typescript for using them.
 
-An APDL is a standard `.d.ts` file with a couple of conventions:
+A `.d.ts` file should include a couple of conventions:
 
 - It should start with a "frontmatter" which is a multi-line comment formatted in YAML. This must include an `id` and `type` value.
+- The `id` should be a URL without any protocol or extension.
+- The `type` should be "api" or "adb-record"
+- The metadata can (and should) also include `title` and `description`.
+- If `type` is "api" then you can also indicate `transport` but tsgen doesnt make anything interesting for proxy transports.
 - It should export a default interface.
-- For APIs:
-  - If any events must be emitted, it should include a `subscribe()` method in the default interface.
-  - The `subscribe()` method must return 1+ interface(s) which declare `emit(name: 'event-name', evt: {...props})` functions.
+
+## Usage
+
+The `tsgen` tool can be called directly or via `atek` under the `atek tsgen` command.
+
+```
+atek tsgen gen-file --in {dts_file_path} --out {output_folder} --env host|node-userland|deno-userland
+atek tsgen gen-folder --in {dts_folder_path} --out {output_folder} --env host|node-userland|deno-userland
+```
+
+Use `gen-file` to generate TS for a single dts, and `gen-folder` for a folder of dts files.
+
+Choose an `--env` value based on your application:
+
+- `node-userland` A nodejs atek application
+- `deno-userland` A deno atek application
+- `host` The "atek" project
+
+If using `node-userland`, you will need to install `@atek-cloud/node-rpc` as the generated code depends on it.
 
 ## Example
 
-### Input: `hypercore-api.d.ts`
+### Input: `ping-api.d.ts`
 
 ```typescript
 /*
-id: atek.cloud/hypercore-api
+id: atek.cloud/ping-api
 type: api
-title: Hypercore API
+title: Ping API
+description: Utility API used for debugging and testing liveness.
 */
 
-export default interface HypercoreAPI {
-  // Create a new hypecore
-  create (): Promise<CreateResponse>
-
-  // Return information about a hypercore.
-  describe (key: Uint8Array): Promise<DescribeResponse>
-
-  // Append a block or array of blocks to the hypercore.
-  append (key: Uint8Array, data: Uint8Array|Uint8Array[]): Promise<number>
-
-  // Get a block of data from the feed.
-  get (key: Uint8Array, index: number, options?: GetOptions): Promise<Uint8Array>
-
-  // Cancel a `get()` operation.
-  cancel (key: Uint8Array, getcallId: string): Promise<void>
-
-  // Check if the feed has a specific block.
-  has (key: Uint8Array, index: number): Promise<boolean>
-
-  // Select a range to be downloaded.
-  download (key: Uint8Array, start?: number, end?: number, options?: DownloadOptions): Promise<void>
-
-  // Cancel a `download()` operation.
-  undownload (key: Uint8Array, downloadcallId: string): Promise<void>
-
-  // Returns total number of downloaded blocks within range. If `end` is not specified it will default to the total number of blocks. If `start` is not specified it will default to 0.
-  downloaded (key: Uint8Array, start?: number, end?: number): Promise<number>
-
-  // Fetch an update for the feed.
-  update (key: Uint8Array, options: UpdateOptions): Promise<void>
-
-  // Seek to a byte offset. Responds with `index` and `relativeOffset`, where index is the data block the byteOffset is contained in and relativeOffset is the relative byte offset in the data block.
-  seek (key: Uint8Array, byteOffset: number): Promise<SeekResponse>
-
-  // Configure the networking behavior for a specific hypercore.
-  configureNetwork (key: Uint8Array, options: ConfigureNetworkOptions): Promise<void>
-
-  // Subscribe to events for a particular hypercore.
-  subscribe (key?: Uint8Array): HypercoreSubscription | GlobalSubscription
-}
-
-export interface HypercoreSubscription {
-  emit (name: 'append', evt: {key: Uint8Array, length: number, byteLength: number})
-  emit (name: 'close', evt: {key: Uint8Array})
-  emit (name: 'peer-add', evt: {key: Uint8Array, id: number, peer: Peer})
-  emit (name: 'peer-remove', evt: {key: Uint8Array, id: number, peer: Peer})
-  emit (name: 'wait', evt: {key: Uint8Array})
-  emit (name: 'download', evt: {key: Uint8Array, seq: number, byteLength: number})
-  emit (name: 'upload', evt: {key: Uint8Array, seq: number, byteLength: number})
-}
-
-export interface GlobalSubscription {
-  emit (name: 'peer-add', evt: {id: number, peer: Peer}): void
-  emit (name: 'peer-remove', evt: {id: number, peer: Peer}): void
-}
-
-export interface CreateResponse {
-  key: Uint8Array
-  discoveryKey: Uint8Array
-  writable: boolean
-  length: number
-  byteLength: number
-}
-
-export interface DescribeResponse {
-  key: Uint8Array
-  discoveryKey: Uint8Array
-  writable: boolean
-  length: number
-  byteLength: number
-}
-
-export interface GetOptions {
-  ifAvailable: boolean
-  wait: boolean
-  // A UUID used to describe this call, to be passed into cancel(). Must be unique.
-  callId: boolean
-}
-
-export interface DownloadOptions {
-  // A UUID used to describe this call, to be passed into undownload(). Must be unique.
-  callId: string
-}
-
-export interface UpdateOptions {
-  minLength: number
-  ifAvailable: boolean
-  hash: boolean
-}
-
-export interface SeekResponse {
-  index: number
-  relativeOffset: number
-}
-
-export interface ConfigureNetworkOptions {
-  // Should we find peers?
-  lookup: boolean
-  // Should we announce ourself as a peer?
-  announce: boolean
-  // Wait for the full swarm flush before returning?
-  flush: boolean
-  // Persist this configuration?
-  remember: boolean
-}
-
-export interface Peer {
-  remotePublicKey: Uint8Array
-  remoteAddress: string
-  type: string
+export default interface PingApi {
+  // Ask for a pong back with the given parameter
+  ping (param: number): Promise<number>
 }
 ```
 
-### Output: `hypercore-api.client.ts`
+### Output
+
+#### `ping-api.ts`
+
+```typescript
+
+/**
+ * File generated by Atek tsgen
+ * env=host
+ * DO NOT MODIFY
+ */
+import { URL } from 'url';
+import { ApiBrokerClient } from '@atek-cloud/api-broker';
+
+export const ID = "atek.cloud/ping-api";
+export const REVISION = undefined;
+
+export default class PingApiClient extends ApiBrokerClient {
+  constructor() {
+    super("atek.cloud/ping-api")
+  }
+
+  ping(param: number): Promise<number> {
+    return this.$rpc("ping", [param])
+  }
+}
+```
+#### `ping-api.server.ts`
 
 ```typescript
 /**
  * File generated by Atek tsgen
+ * env=host
  * DO NOT MODIFY
  */
-import { ApiBrokerClient } from '@atek-cloud/api-broker';
+import { URL } from 'url';
+import { ApiBrokerServer, ApiBrokerServerHandlers } from '@atek-cloud/api-broker';
 
-const SCHEMAS = {"$schema":"http://json-schema.org/draft-07/schema#", /*...*/};
-const EXPORT_MAP = {"methods":{/*...*/,"events":{"HypercoreSubscription":{/*...*/},"GlobalSubscription":{/*...*/}}};
+export const ID = "atek.cloud/ping-api";
+export const REVISION = undefined;
+export const SCHEMAS = {"$schema":"http://json-schema.org/draft-07/schema#","definitions":{"PingApi":{"type":"object"},"api_PingApi_Ping":{"type":"object","properties":{"params":{"type":"array","items":{"type":"number"},"minItems":1,"maxItems":1},"returns":{"type":"number"}},"required":["params","returns"]}}};
+export const EXPORT_MAP = {"methods":{"ping":"#/definitions/api_PingApi_Ping"},"events":{}};
 
-export class HypercoreAPIClient extends ApiBrokerClient {
-  constructor() {
-    super(SCHEMAS, EXPORT_MAP)
+export default class PingApiServer extends ApiBrokerServer {
+  ID = "atek.cloud/ping-api";
+  REVISION = undefined;
+
+  constructor(handlers: ApiBrokerServerHandlers) {
+    super(handlers, SCHEMAS, EXPORT_MAP)
   }
-
-  create(): Promise<CreateResponse> {
-    return this._rpc("create", [])
-  }
-
-  describe(key: Uint8Array): Promise<DescribeResponse> {
-    return this._rpc("describe", [key])
-  }
-
-  append(key: Uint8Array, data: Uint8Array|Uint8Array[]): Promise<number> {
-    return this._rpc("append", [key, data])
-  }
-
-  get(key: Uint8Array, index: number, options?: GetOptions): Promise<Uint8Array> {
-    return this._rpc("get", [key, index, options])
-  }
-
-  cancel(key: Uint8Array, getcallId: string): Promise<void> {
-    return this._rpc("cancel", [key, getcallId])
-  }
-
-  has(key: Uint8Array, index: number): Promise<boolean> {
-    return this._rpc("has", [key, index])
-  }
-
-  download(key: Uint8Array, start?: number, end?: number, options?: DownloadOptions): Promise<void> {
-    return this._rpc("download", [key, start, end, options])
-  }
-
-  undownload(key: Uint8Array, downloadcallId: string): Promise<void> {
-    return this._rpc("undownload", [key, downloadcallId])
-  }
-
-  downloaded(key: Uint8Array, start?: number, end?: number): Promise<number> {
-    return this._rpc("downloaded", [key, start, end])
-  }
-
-  update(key: Uint8Array, options: UpdateOptions): Promise<void> {
-    return this._rpc("update", [key, options])
-  }
-
-  seek(key: Uint8Array, byteOffset: number): Promise<SeekResponse> {
-    return this._rpc("seek", [key, byteOffset])
-  }
-
-  configureNetwork(key: Uint8Array, options: ConfigureNetworkOptions): Promise<void> {
-    return this._rpc("configureNetwork", [key, options])
-  }
-
-  subscribe(key?: Uint8Array): HypercoreSubscription | GlobalSubscription {
-    return this._subscribe([key])
-  }
-}
-
-export interface HypercoreSubscription {
-  on(name: "append", handler: (evt: { key: Uint8Array; length: number; byteLength: number; }) => void);
-  on(name: "close", handler: (evt: { key: Uint8Array; }) => void);
-  on(name: "peer-add", handler: (evt: { key: Uint8Array; id: number; peer: Peer; }) => void);
-  on(name: "peer-remove", handler: (evt: { key: Uint8Array; id: number; peer: Peer; }) => void);
-  on(name: "wait", handler: (evt: { key: Uint8Array; }) => void);
-  on(name: "download", handler: (evt: { key: Uint8Array; seq: number; byteLength: number; }) => void);
-  on(name: "upload", handler: (evt: { key: Uint8Array; seq: number; byteLength: number; }) => void);
-}
-
-export interface GlobalSubscription {
-  on(name: "peer-add", handler: (evt: { id: number; peer: Peer; }) => void);
-  on(name: "peer-remove", handler: (evt: { id: number; peer: Peer; }) => void);
-}
-
-export interface CreateResponse {
-  key: Uint8Array;
-  discoveryKey: Uint8Array;
-  writable: boolean;
-  length: number;
-  byteLength: number;
-}
-
-export interface DescribeResponse {
-  key: Uint8Array;
-  discoveryKey: Uint8Array;
-  writable: boolean;
-  length: number;
-  byteLength: number;
-}
-
-export interface GetOptions {
-  ifAvailable: boolean;
-  wait: boolean;
-  callId: boolean;
-}
-
-export interface DownloadOptions {
-  callId: string;
-}
-
-export interface UpdateOptions {
-  minLength: number;
-  ifAvailable: boolean;
-  hash: boolean;
-}
-
-export interface SeekResponse {
-  index: number;
-  relativeOffset: number;
-}
-
-export interface ConfigureNetworkOptions {
-  lookup: boolean;
-  announce: boolean;
-  flush: boolean;
-  remember: boolean;
-}
-
-export interface Peer {
-  remotePublicKey: Uint8Array;
-  remoteAddress: string;
-  type: string;
 }
 ```
