@@ -1,6 +1,6 @@
 {
   "name": "@atek-cloud/tsgen",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Typescript generation toolset",
   "type": "module",
   "bin": "dist/bin.js",
@@ -12,7 +12,9 @@
   "author": "Paul Frazee <pfrazee@gmail.com>",
   "license": "MIT",
   "repository": "github:atek-cloud/tsgen",
-  "bugs": {"url": "https://github.com/atek-cloud/tsgen/issues"},
+  "bugs": {
+    "url": "https://github.com/atek-cloud/tsgen/issues"
+  },
   "homepage": "https://github.com/atek-cloud/tsgen#readme",
   "dependencies": {
     "@atek-cloud/json-schema-to-dts": "^1.5.0",
