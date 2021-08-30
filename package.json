@@ -1,6 +1,6 @@
 {
   "name": "@atek-cloud/tsgen",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Typescript generation toolset",
   "type": "module",
   "bin": "dist/bin.js",
