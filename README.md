@@ -1,5 +1,10 @@
 # `tsgen` Typescript generator for Atek
 
+## Deprecated
+
+This repo was used during an early version of Atek in which schemas were written as `d.ts` files and then generated using this tool. This was more complexity than we needed, so this approach has been deprecated.
+
+---
 
 Atek defines RPC and database schemas using URL IDs, various options, (in some cases) JSON Schemas. These can be somewhat tedious to define manually.
 
